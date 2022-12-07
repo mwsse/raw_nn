@@ -52,4 +52,218 @@ class Activation_RelU:
 # - Softmax activation
 class Activation_Softmax:
 
-    
+    # Forward pass
+    def forward(self, inputs):
+        self.inputs = inputs           # Remember input values
+
+        # Get unnormalized probabilities 
+        exp_values = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
+        probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
+        self.output = probabilities
+
+    # Backward pass
+    def backward(self, dvalues):
+
+        # Create unitialized array
+        self.dinputs = np.empty_like(dvalues)
+
+        # Enumerate outputs and gradients
+        for index, (single_output, single_dvalues) in enumerate(zip(self.output, dvalues)):
+            # Flatten output array
+            single_output = single_output.reshape(-1,1)
+            # Calculate Jacobian matrix of the outpt and ...
+            jacobian_matrix = np.diagflat(single_output)-np.dot(single_output, single_output.T)
+
+            # ... calculate sample-wise gradient and add it to the
+            # array of sample gradients
+            self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
+
+# - Common loss class
+class Loss:
+
+    # Calculates the data and regularization losses
+    # given model output and ground truth values
+    def calculate(self, output, y):
+        # Calculate sample losses
+        sample_losses = self.forward(output, y)
+
+        # Calculate mean loss
+        return np.mean(sample_losses)
+
+    def forward(self, y_pred, y_true):
+        print("Error in 'class Loss'. you must override forward()")
+        return []
+
+# - Cross-entropy loss
+class Loss_CategoricalCrossentropy(Loss):
+
+    # Forward pass
+    def forward(self, y_pred, y_true):
+
+        # Number of samples in a batch
+        samples = len(y_pred)
+
+        # Clip data to prevent division by 0. Clip both sides to not
+        # drag mean towards any value
+        y_pred_clipped = np.clip(y_pred, 1e-7, 1 - 1e-7)
+
+        # Probabilities for target values - only if categorical labels
+        if len(y_true.shape) == 1:
+            correct_confidences = y_pred_clipped[range(samples), y_true]
+        
+        # Mask values - only for one-hot encoded labels
+        elif len(y_true.shape) == 2:
+            correct_confidences = np.sum(y_pred_clipped * y_true, axis=1)
+
+        # Losses
+        negative_log_likelihoods = -np.log(correct_confidences)
+        return negative_log_likelihoods
+
+    # Backward pass
+    def backward(self, dvalues, y_true):
+
+        # Number of samples
+        samples = len(dvalues)
+        # Number of labels in every sample.
+        # First sample is used to count them
+        labels = len(dvalues[0])
+
+        # If labels are spare, turn them into one-hot vector
+        # E.g. [(0,0,1,2)] -->  [(1,0,0),(1,0,0),(0,1,0),(0,0,1)]
+        if len(y_true.shape) == 1:
+            y_true = np.eye(labels)[y_true]
+
+        # Calculate gradient
+        self.dinputs = -y_true / dvalues
+        # Normalize gradient
+        self.dinputs = self.dinputs / samples
+
+# - Softmax classifier
+#   Combined Softmax activiation and cross-entropy loss for faster backward step
+class Activation_Softmax_Loss_CategoricalCrossentropy():
+
+    # Creates activation and loss function objects 
+    def __init__(self):
+        self.activation = Activation_Softmax()
+        self.loss       = Loss_CategoricalCrossentropy()
+
+    # Forward pass
+    def forward(self, inputs, y_true):
+        # Output layer's activation function
+        self.activation.forward(inputs)
+        # Set the output
+        self.output = self.activation.output
+        # Calculate and return loss value
+        return self.loss.calculate(self.output, y_true)
+
+    # Backward pass
+    def backward(self, dvalues, y_true):
+
+        # Number of sampels
+        samples = len(dvalues)
+
+        # If labels are one-hot encoded, turm then into discrete values
+        if len(y_true.shape) == 2:
+            y_true = np.argmax(y_true, axis=1)
+
+        # Copy so we can safely modify variable
+        self.dinputs = dvalues.copy()
+        # Calculate gradient
+        self.dinputs[range(samples), y_true] -= 1
+        # Normalize gradient
+        self.dinputs = self.dinputs / samples
+
+# - Optimizer SGD - Stochastic Gradient Descent
+class Optimizer_SGD:
+
+    # Initialize optimizer - set settings, learning rate of 1 is default
+    def __init__(self, learning_rate=1.0, decay=0.0, momentum=0.0):
+        self.learning_rate          = learning_rate
+        self.current_learning_rate  = learning_rate
+        self.decay                  = decay
+        self.iterations             = 0
+        self.momentum               = momentum
+
+    # Call once before any parameters updates
+    def pre_update_params(self):
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * \
+                (1. / (1. + self.decay * self.iterations))
+
+    # Update parameters
+    def update_params(self, layer):
+
+        if self.momentum:
+
+            # Create momentum arrays if layer does not have them
+            if not hasattr(layer, 'weight_momentums'):
+                layer.weight_momentums = np.zeros_like(layer.weights)
+                layer.bias_momentums   = np.zeros_like(layer.biases )
+
+            # Build weight updates with momentum.
+            # Take previous updates * retain factor and update with current gradients
+            weight_updates = self.momentum * layer.weight_momentums - \
+                self.current_learning_rate * layer.dweights
+            layer.weight_momentums = weight_updates
+            
+            bias_updates = self.momentum * layer.bias_momentums - \
+                self.current_learning_rate * layer.dbiases
+            layer.bias_momentums = bias_updates
+
+        # Else run vanilla SGD update
+        else:                 
+            weight_updates = -self.current_learning_rate * layer.dweights
+            bias_updates   = -self.current_learning_rate * layer.dbiases
+
+
+        layer.weights += weight_updates
+        layer.biases  += bias_updates
+
+    # Call once after any parameter updates
+    def post_update_params(self):
+        self.iterations += 1
+
+## ------------------------------------------------------------------------------------
+#   Main part - Training, testing, evaluating
+## ------------------------------------------------------------------------------------
+
+# Create dataset using 'spiral_data' from nnfs
+X, y = spiral_data(samples=100, classes=3)
+
+# Create network and define loss, accuracy and optimization functions (1x64)
+dense1          = Layer_Dense(2,64)
+activation1     = Activation_RelU()
+dense2          = Layer_Dense(64,3)
+loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
+optimizer       = Optimizer_SGD(decay=1e-3, momentum=0.9)
+
+# Start the training
+for epoch in range(10001):
+
+    # Forward pass
+    dense1.forward(X)
+    activation1.forward(dense1.output)
+    dense2.forward(activation1.output)
+    loss = loss_activation.forward(dense2.output, y)
+
+    # Calculate accuracy from output of loss_activation and targets
+    predictions = np.argmax(loss_activation.output, axis=1)
+    if len(y.shape) == 2: 
+        y = np.argmax(y, axis=1)
+    accuracy = np.mean(predictions == y)
+
+    if not epoch % 100:
+        print(f"epoch: {epoch:5d} | acc: {accuracy:.3f} | ", end="")
+        print(f"loss: {loss:.3f} | lr: {optimizer.current_learning_rate}")
+
+    # Backward pass
+    loss_activation.backward(loss_activation.output, y)
+    dense2.backward(loss_activation.dinputs)
+    activation1.backward(dense2.dinputs)
+    dense1.backward(activation1.dinputs)
+
+    # Optimizer
+    optimizer.pre_update_params()
+    optimizer.update_params(dense1)
+    optimizer.update_params(dense2)
+    optimizer.post_update_params()
