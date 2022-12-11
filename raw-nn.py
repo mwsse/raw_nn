@@ -9,6 +9,12 @@ import nnfs
 from nnfs.datasets import spiral_data
 from timeit import timeit
 
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import torch
+from torch import nn
+import torch.nn.functional as F
+
 nnfs.init()
 
 ## ------------------------------------------------------------------------------------
@@ -357,6 +363,36 @@ class Optimizer_Adam:
     def post_update_params(self):
         self.iterations += 1
 
+## ----------------------------------------------------------------------- 
+#   plot_multiclass_decision_boundary(model, X, y) 
+## -----------------------------------------------------------------------
+def plot_multiclass_decision_boundary(X, y):
+    """
+    source: https://madewithml.com/courses/foundations/neural-networks/
+    """
+    x_min, x_max = X[:,0].min() - 0.1, X[:,0].max() + 0.1
+    y_min, y_max = X[:,1].min() - 0.1, X[:,1].max() + 0.1
+    t = np.linspace(x_min, x_max, 101)
+    xx,yy = np.meshgrid(np.linspace(y_min, y_max, 101), np.linspace(y_min, y_max, 101))
+    cmap = plt.cm.Spectral
+
+    X_test = np.c_[xx.ravel(), yy.ravel()]
+    # Running the model should be it's own function
+    dense1.forward(X_test)
+    activation1.forward(dense1.output)
+    dense2.forward(activation1.output)
+
+    # Annoyingly I need to convert to PyTorch Tensor and use F.softmax <-- ToDo!
+    y_pred = F.softmax(torch.from_numpy(dense2.output), dim=1)
+    _, y_pred = y_pred.max(dim=1)
+    y_pred = y_pred.reshape(xx.shape)
+    y_pred = y_pred.numpy()
+    
+    plt.contourf(xx, yy, y_pred, cmap=plt.cm.Spectral, alpha=0.8)
+    plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.RdYlBu, edgecolors='k')
+    plt.xlim(xx.min(), xx.max())
+    plt.ylim(yy.min(), yy.max())
+
 ## ------------------------------------------------------------------------------------
 #   Main part - Training, testing, evaluating
 ## ------------------------------------------------------------------------------------
@@ -389,7 +425,7 @@ for epoch in range(10001):
         y = np.argmax(y, axis=1)
     accuracy = np.mean(predictions == y)
 
-    if not epoch % 100:
+    if not epoch % 1000:
         print(f"epoch: {epoch:5d} | acc: {accuracy:.3f} | ", end="")
         print(f"loss: {loss:.3f} | lr: {optimizer.current_learning_rate}")
 
@@ -404,3 +440,17 @@ for epoch in range(10001):
     optimizer.update_params(dense1)
     optimizer.update_params(dense2)
     optimizer.post_update_params()
+
+
+## -------------------------------------------------------------------------------------
+#   Evaluate model 
+## -------------------------------------------------------------------------------------
+
+# Visualize the decision boundary
+plt.figure(figsize=(12,5))
+plt.subplot(1, 2, 1)
+plt.title("Train")
+plot_multiclass_decision_boundary(X=X, y=y)
+# We don't have any test or validation set yet
+
+plt.show()
