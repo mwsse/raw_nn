@@ -1,0 +1,34 @@
+ztools.			
+		Layers:	
+			Layer_Dense()
+			Layer_Input()
+			
+		Activation:	
+			Activation_ReLU()
+			Activation_Softmax()
+			Activation_Sigmoid()
+			Activation_Linear()
+			Activation_Softmax_Loss_Categoricalentropy()
+			
+		Optimizer:	
+			Optimizer_Adam()
+			Optimizer_SGD()
+			class Optimizer_Adagrad()
+			class Optimizer_RMSprop()
+			
+		Loss:	
+			Loss()
+			Loss_CategoricalCrossentropy()
+			
+			Loss_MeanSquaredError()
+			Loss_MeanAbsoluteError()
+			
+		Accuracy:	
+			Accuracy()
+			Accuracu_Regression()
+			
+		Model	
+			Model()
+			
+		Tools	
+			plt_multiclass_decision_boundary()
