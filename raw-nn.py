@@ -33,6 +33,7 @@ class Layer_Dense:
     # Forward pass
     def forward(self, inputs):
         self.inputs = inputs           # Remember input values
+        print("1: ", input.shape, (self.weights).shape)
         self.output = np.dot(inputs, self.weights) + self.biases
 
     # Backward pass

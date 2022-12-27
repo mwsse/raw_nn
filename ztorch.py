@@ -1,4 +1,5 @@
 import cupy as cp
+import numpy as np    # For matplotlib
 import matplotlib.pyplot as plt
 
 ## ====================================================================================
@@ -95,10 +96,10 @@ class Activation_Softmax:
         self.inputs = inputs
 
         # Get unnormalized probabilities
-        exp_values = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
+        exp_values = cp.exp(inputs - cp.max(inputs, axis=1, keepdims=True))
 
         # Normalize them for each sample
-        probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
+        probabilities = exp_values / cp.sum(exp_values, axis=1, keepdims=True)
 
         self.output = probabilities
 
@@ -106,24 +107,34 @@ class Activation_Softmax:
     def backward(self, dvalues):
 
         # Create uninitialized array
-        self.dinputs = np.empty_like(dvalues)
+        self.dinputs = cp.empty_like(dvalues)
 
         # Enumerate outputs and gradients
         for index, (single_output, single_dvalues) in enumerate(zip(self.output, dvalues)):
             # Flatten output array
             single_output = single_output.reshape(-1,1)
             # Calculate Jacobian matrix of the output ...
-            jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T)
+            jacobian_matrix = cp.diagflat(single_output) - cp.dot(single_output, single_output.T)
 
             # Calculate sample-wise gradient and add it to the array of sample gradients
-            self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
+            self.dinputs[index] = cp.dot(jacobian_matrix, single_dvalues)
     
     # Calculate predictions for output
     def predictions(self, outputs):
         return cp.argmax(outputs, axis=1)
 
 # - Activation_Sigmoid ----------------------------------------------------------------
-class Activation_Sigmoid: 
+class Activation_Sigmoid:
+
+    # Forward pass
+    def forward(self, inputs):
+        self.inputs = inputs
+        self.output = 1 / (1 + np.exp(-inputs))
+
+    # Backward pass
+    def backward(self, dvalues):
+        # Derivative - calculates from output of the sigmoid func
+        self.dinputs = dvalues * (1 - self.output) * self.output
 
     # Calculate predictions for output
     def predictions(self, outputs):
@@ -200,8 +211,8 @@ class Optimizer_Adam:
         bias_cache_corrected   = layer.bias_cache   / (1-self.beta_2**(self.iterations+1))
 
         # Vanilla SGD parameter update + normalization with sqrt cache
-        layer.weights += -self.current_learning_rate * weight_momentums_corrected / (np.sqrt(weight_cache_corrected) + self.epsilon)
-        layer.biases  += -self.current_learning_rate * bias_momentums_corrected   / (np.sqrt(bias_cache_corrected)   + self.epsilon)
+        layer.weights += -self.current_learning_rate * weight_momentums_corrected / (cp.sqrt(weight_cache_corrected) + self.epsilon)
+        layer.biases  += -self.current_learning_rate * bias_momentums_corrected   / (cp.sqrt(bias_cache_corrected)   + self.epsilon)
 
     # Call once after any parameter updates
     def post_update_params(self):
@@ -226,13 +237,13 @@ class Loss:
             
             # L1/L2 regularization (if factor greater than 0)
             if layer.weight_regularizer_l1 > 0:
-                regularization_loss += layer.weight_regularizer_l1 * cp.sum(np.abs(layer.weights))
+                regularization_loss += layer.weight_regularizer_l1 * cp.sum(cp.abs(layer.weights))
 
             if layer.weight_regularizer_l2 > 0:
                 regularization_loss += layer.weight_regularizer_l2 * cp.sum(layer.weights * layer.weights)
 
             if layer.bias_regularizer_l1 > 0:
-                regularization_loss += layer.bias_regularizer_l1 * cp.sum(np.abs(layer.biases))
+                regularization_loss += layer.bias_regularizer_l1 * cp.sum(cp.abs(layer.biases))
 
             if layer.bias_regularizer_l2 > 0:
                 regularization_loss += layer.bias_regularizer_l2 * cp.sum(layer.biases * layer.biases)
@@ -245,7 +256,7 @@ class Loss:
 
     # Calculates the data and regularization losses
     # given model output and ground truth values
-    def calculate(self, output, y):
+    def calculate(self, output, y, *, include_regularization=False):
 
         # Calculate sample losses
         sample_losses = self.forward(output, y)
@@ -253,13 +264,94 @@ class Loss:
         # Calculate mean loss
         data_loss = cp.mean(sample_losses)
 
+        # if just data loss - return it
+        if not include_regularization:
+            return data_loss
+
         # Return the data and regularization losses
         return data_loss, self.regularization_loss()
 
     def forward(self, y_pred, y_true):
         return []
 
+# - Binary cross-entropy loss ---------------------------------------------------------
+class Loss_BinaryCrossentropy(Loss):
+
+    # Forward pass
+    def forward(self, y_pred, y_true):
+        # Clip data - on both sides - to prevent div 0
+        y_pred_clipped = np.clip(y_pred, 1e-7, 1-1e-7)
+
+        # Calculate sample-wise loss
+        sample_losses = \
+            -(y_true * np.log(y_pred_clipped) +
+            (1-y_true) * np.log(1 - y_pred_clipped))
+        sample_losses = np.mean(sample_losses, axis=-1)
+
+        return sample_losses
+
+    # Backward pass
+    def backward(self, dvalues, y_true):
+
+        samples = len(dvalues)
+        outputs = len(dvalues[0])
+
+        clipped_dvalues = np.clip(dvalues, 1e-7, 1-1e-7)
+
+        # Calculate gradient
+        self.dinputs = -(y_true / clipped_dvalues - (1-y_true) / (1-clipped_dvalues)) / outputs
+
+        # Normalize gradient
+        self.dinputs = self.dinputs / samples
+
 # - Loss_CategoricalCrossentropy ------------------------------------------------------
+class Loss_CategoricalCrossentropy(Loss):
+
+    # Forwad pass
+    def forward(self, y_pred, y_true):
+
+        # Number of samples in a batch
+        samples = len(y_pred)
+
+        # Clip data to prevent division by 0
+        # Clip both sides to not drag mean towards any value
+        y_pred_clipped = np.clip(y_pred, 1e-7, 1-1e-7)
+
+        # Probabilities for target values - 
+        # only if categorical labels
+        # correct_confidences = 0  # Remove warning!
+        if len(y_true.shape) == 1:
+            correct_confidences = y_pred_clipped[range(samples), y_true]
+
+        # Mask values - only for one-hot encoded labels
+        elif len(y_true.shape) == 2:
+            correct_confidences = np.sum(y_pred_clipped * y_true, axis=1)
+        
+        #else:
+        #    print("ERROR!")
+        #    correct_confidences = 0
+
+        # Losses
+        negative_log_likelihoods = -np.log(correct_confidences)
+        return negative_log_likelihoods
+
+    def backward(self, dvalues, y_true):
+
+        # Number of samples
+        samples = len(dvalues)
+        # Number of labels in every sample.
+        # We'll use the first sample to count them
+        labels = len(dvalues[0])
+
+        # If labels are sparse, turn them into one-hot vector 
+        if len(y_true.shape) == 1:
+            y_true = np.eye(labels)[y_true]
+        
+        # Calculate gradient
+        self.dinputs = -y_true / dvalues
+
+        # Normalize gradient
+        self.dinputs = self.dinputs / samples
 
 # - Loss_MeanSquaredError -------------------------------------------------------------
 class Loss_MeanSquaredError(Loss):   # L2 Loss
@@ -287,7 +379,7 @@ class Loss_MeanAbsoluteError(Loss):   # L1 loss
     def forward(self, y_pred, y_true):
 
         # Calculate loss
-        sample_losses = cp.mean(np.abs(y_true - y_pred), axis=-1)
+        sample_losses = cp.mean(cp.abs(y_true - y_pred), axis=-1)
         return sample_losses
 
     # Backward pass
@@ -332,6 +424,24 @@ class Accuracy_Regression(Accuracy):
     # Compares predictions to the ground truth values
     def compare(self, predictions, y):
         return cp.absolute(predictions - y) < self.precision
+
+
+# - Accuracy_Categorical --------------------------------------------------------------
+class Accuracy_Categorical(Accuracy):
+
+    def __init__(self, *, binary=False):
+        # Binary mode? 
+        self.binary = binary
+
+    # No initialization is needed
+    def init(self, y):
+        pass
+
+    # Compares predictions to the ground truth values
+    def compare(self, predictions, y):
+        if not self.binary and len(y.shape) == 2:
+            y = cp.argmax(y, axis=1)
+        return predictions == y
     
 # - Model -----------------------------------------------------------------------------
 class Model:
@@ -382,7 +492,7 @@ class Model:
         self.loss.remember_trainable_layers(self.trainable_layers)
  
     # Train the model
-    def train(self, X, y, *, epochs=1, print_every=1):
+    def train(self, X, y, *, epochs=1, print_every=1, validation_data=None):
 
         # Initialize accuracy object
         self.accuracy.init(y)
@@ -394,7 +504,7 @@ class Model:
             output = self.forward(X)
 
             # Calculate loss
-            data_loss, regularization_loss = self.loss.calculate(output, y)
+            data_loss, regularization_loss = self.loss.calculate(output, y, include_regularization=True)
             loss = data_loss + regularization_loss
 
             # Get predictions and calculate an accuracy
@@ -418,6 +528,26 @@ class Model:
                       f'data_loss: {data_loss:.3f} |' +
                       f'reg_loss: {regularization_loss:.3f} ] |' +
                       f'lr: {self.optimizer.current_learning_rate:.5f} ') 
+
+        # If there is validation data
+        if validation_data is not None:
+
+            # For better readability
+            X_val, y_val = validation_data
+
+            # Perform the forward pass
+            output = self.forward(X_val)
+
+            # Calculate the loss
+            loss = self.loss.calculate(output, y_val)
+
+            # Get predictions and calculate an accuracy
+            predictions = self.output_layer_activation.predictions(output)
+            accuracy    = self.accuracy.calculate(predictions, y_val)
+
+            # print a summary
+            print(f'validation: ' +
+                f'acc: {accuracy:.3f} | loss: {loss:.3f}')
 
     # Forward pass
     def forward(self, X):
