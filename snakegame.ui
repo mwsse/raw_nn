@@ -1,0 +1,166 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.3">
+  <object class="tk.Toplevel" id="toplevel1">
+    <property name="height">200</property>
+    <property name="width">200</property>
+    <child>
+      <object class="tk.Frame" id="frame_left" named="True">
+        <property name="background">#c0c0c0</property>
+        <property name="borderwidth">4</property>
+        <property name="height">850</property>
+        <property name="padx">5</property>
+        <property name="pady">5</property>
+        <property name="relief">groove</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">0</property>
+          <property name="row">0</property>
+          <property name="sticky">ew</property>
+        </layout>
+        <containerlayout manager="grid">
+          <property name="anchor">n</property>
+          <property name="propagate">False</property>
+        </containerlayout>
+        <child>
+          <object class="tk.Label" id="score" named="True">
+            <property name="background">#ffffbf</property>
+            <property name="font">{Cascadia Mono SemiBold} 24 {}</property>
+            <property name="foreground">#000000</property>
+            <property name="justify">left</property>
+            <property name="relief">raised</property>
+            <property name="takefocus">true</property>
+            <property name="text" translatable="yes">000</property>
+            <property name="textvariable">string:score_variable</property>
+            <property name="width">9</property>
+            <layout manager="grid">
+              <property name="column">0</property>
+              <property name="row">0</property>
+              <property name="sticky">ew</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="tk.Label" id="info" named="True">
+            <property name="background">#c0c0c0</property>
+            <property name="height">4</property>
+            <property name="relief">groove</property>
+            <property name="text" translatable="yes">     CakeSnake
+     design by
+     Kai &amp; Mats</property>
+            <property name="textvariable">string:info_variable</property>
+            <layout manager="grid">
+              <property name="column">0</property>
+              <property name="ipadx">0</property>
+              <property name="pady">10</property>
+              <property name="row">1</property>
+              <property name="sticky">ew</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="tk.Label" id="highscore" named="True">
+            <property name="background">#000000</property>
+            <property name="font">{Cascadia Code SemiBold} 9 {}</property>
+            <property name="foreground">white</property>
+            <property name="relief">groove</property>
+            <property name="text" translatable="yes">High Score
+------------
+Kai      300 (speed  3)
+Kai      100 (speed 10)
+Kai       90 (speed  7)
+Mats      50 (speed  1)
+Mats      30 (speed  1)</property>
+            <property name="textvariable">string:highscore_variable</property>
+            <layout manager="grid">
+              <property name="column">0</property>
+              <property name="row">2</property>
+              <property name="sticky">ew</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="tk.Scale" id="speed" named="True">
+            <property name="background">#c0c0c0</property>
+            <property name="command" type="command" cbtype="scale">setspeed_command</property>
+            <property name="from_">1</property>
+            <property name="label" translatable="yes">Set the snake speed</property>
+            <property name="orient">horizontal</property>
+            <property name="relief">ridge</property>
+            <property name="showvalue">true</property>
+            <property name="to">10</property>
+            <property name="variable">int:scale_variable</property>
+            <layout manager="grid">
+              <property name="column">0</property>
+              <property name="pady">20</property>
+              <property name="row">3</property>
+              <property name="sticky">ew</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="tk.Label" id="status" named="True">
+            <property name="background">#c0c0c0</property>
+            <property name="font">{Courier New} 8 {}</property>
+            <property name="height">30</property>
+            <property name="justify">left</property>
+            <property name="relief">groove</property>
+            <property name="text" translatable="yes">Status
+Step:          010100
+Generation:    100203
+time:       01h15m42s</property>
+            <property name="textvariable">string:status_variable</property>
+            <layout manager="grid">
+              <property name="column">0</property>
+              <property name="pady">10</property>
+              <property name="row">4</property>
+              <property name="sticky">ew</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="tk.Button" id="button1">
+            <property name="background">#b90746</property>
+            <property name="command" type="command" cbtype="simple">restart_command</property>
+            <property name="foreground">gold</property>
+            <property name="state">normal</property>
+            <property name="takefocus">false</property>
+            <property name="text" translatable="yes">START GAME</property>
+            <property name="textvariable">string:restart_variable</property>
+            <layout manager="grid">
+              <property name="column">0</property>
+              <property name="pady">5</property>
+              <property name="row">5</property>
+              <property name="sticky">sew</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_right" named="True">
+        <property name="borderwidth">3</property>
+        <property name="height">820</property>
+        <property name="padx">10</property>
+        <property name="pady">10</property>
+        <property name="relief">groove</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">1</property>
+          <property name="row">0</property>
+          <property name="sticky">e</property>
+        </layout>
+        <child>
+          <object class="tk.Canvas" id="canvas" named="True">
+            <property name="height">820</property>
+            <property name="state">normal</property>
+            <property name="width">820</property>
+            <layout manager="grid">
+              <property name="column">0</property>
+              <property name="row">0</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
