@@ -1,54 +1,62 @@
 # Reinforced learning - Agent for SnakeAI.py
-import threading
+import random
 import snakeAI 
 from snakeAI import SnakegameApp
 
-# - GAMEPLAN DATA SETUP
-GAMEPLAN_SIZE     = 40     # Set the number of positions (boxes) that the snake can move (Horizontal and vertical)
-GAMEBOX_SIZE      = 20     # Set the size, in pixels, for the width of the box
-GAME_PADDING      = 10     # Set the padding on each side of the board
-GAME_SPEED        = 150    # Set the default speed for the snake. Slower number is faster
-SNAKE_LENGTH_ADD  = 3      # The increase in length each time the snake catch the cake     
+# - Define some parameters for the ML machine
 
-#   bind spacebar_command, 
-#   def spacebar_command(self, event):
-#        self.restart_command()
+action = [] *  3    # [Straight, Right, Left]
 
-def spacebar_cmd(event):
-    global app
-    print('Here I am :) ')
-    app.restart_command()
+state  = [] * 11    #  0 - Danger straight
+                    #  1 - Danger right
+                    #  2 - Danger left
+                    #  3 - Direction left
+                    #  4 - Direction right
+                    #  5 - Direction up
+                    #  6 - Direction down
+                    #  7 - food left
+                    #  8 - food right
+                    #  9 - food up
+                    # 10 - food down
 
+# direction[x,y]    #   1,  0       Right
+                    #  -1,  0       Left
+                    #   0,  1       Down
+                    #   0, -1       Up
+
+# The agents hook into the timed loop in Tk for gaining control
 def game_engine_hook():
 
-    print("..and again ... ")
+    print("Here we are")
 
     if app.gamestatus != 'RUNNING':
         print(f'quitting:Status={app.gamestatus}')
-        start_time.cancel
-        #if app.gamestatus== "WINDOW KILL":                
-            # app.quit()
-            # start_time.quit
-                
         return
-    
+
+    # Fake user input for guidance
+    next_dir = random.randint(0,4)
+    if next_dir<3:
+        action = [1,0,0]   # Straight
+    elif next_dir == 3:
+        action = [0,1,0]   # Right
+    else:
+        action = [0,0,1]   # Left
+
+    # Get new direction from action
+    x,y = app.direction
+
+    if action[1] == 1:    # take right turn
+        app.direction = [-y,  x]
+    elif action[2] == 1:
+        app.direction = [ y, -x]
+
     app.move()
 
-    # start_time = threading.Timer(150.0/1000, game_engine)
-    # start_time.start()
 
-def at_close():
-    global start_time
 
-    print('quitting ...')
-    # app.destroy
-    # start_time.quit
-
-app = SnakegameApp(GAMEPLAN_SIZE, GAMEBOX_SIZE, GAME_PADDING, game_engine_hook=game_engine_hook)
-
+# -- Start the game and enter the TK mainloop. 
+app = SnakegameApp( game_engine_hook=game_engine_hook, 
+                    running_ai=False)
 app.run()
 
-
-print("When will this be executed?")
-#start_time
-# app.at_close()
+print("Game closed")

@@ -8,9 +8,6 @@ from tkinter import *
 from PIL import ImageTk, Image
 import random, os
 import numpy as np
-import threading
-import atexit
-
 
 from operator import itemgetter
 import pickle
@@ -39,12 +36,13 @@ class SnakegameApp:
     snake_list = []
     gamematrix = np.zeros([GAMEPLAN_SIZE, GAMEPLAN_SIZE])
 
-    def __init__(self, gameplan_size, gamebox_size, game_padding, game_engine_hook):
+    def __init__(self, game_engine_hook, running_ai=False):
 
-        self.gameplan_size    = gameplan_size
-        self.gamebox_size     = gamebox_size
-        self.game_padding     = game_padding
+        self.gameplan_size    = GAMEPLAN_SIZE
+        self.gamebox_size     = GAMEBOX_SIZE
+        self.game_padding     = GAME_PADDING
         self.gamestatus       = 'FIRST TIME'
+        self.running_ai       = running_ai
         self.game_engine_hook = game_engine_hook
 
         # -----------------------------------------------------------------------------------------
@@ -78,10 +76,12 @@ class SnakegameApp:
 
         # Complete the gameplan in the canvas object --------------------------------------------
 
-        for pos in range(0, gameplan_size+1, 1):
-            xl = game_padding + pos*gamebox_size
-            self.canvas.create_line(xl, game_padding, xl, gameplan_size*gamebox_size+game_padding)
-            self.canvas.create_line(game_padding, xl, gameplan_size*gamebox_size+game_padding, xl)
+        for pos in range(0, self.gameplan_size+1, 1):
+            xl = self.game_padding + pos*self.gamebox_size
+            t  = self.gameplan_size*self.gamebox_size+self.game_padding
+
+            self.canvas.create_line(xl, self.game_padding, xl, t)            
+            self.canvas.create_line(self.game_padding, xl, t, xl)
 
         # - Get the snake head and body image from file (19x19), and cake image
         self.img_snake_body = ImageTk.PhotoImage(Image.open("snake_body.bmp"))
@@ -90,24 +90,13 @@ class SnakegameApp:
         
         # - Bind some command buttons for shortcuts
         self.mainwindow.bind("<space>", self.spacebar_command)
-        # self.mainwindow.bind("<space>", spc_cmd)
 
-        # atexit.register(at_close)
-
-        # self.mainwindow.protocol("WM_DELETE_WINDOW", self.doSomething)
-
-    def doSomething(self):
-        print("Someone is killing my window :( ")
-        self.gamestatus="WINDOW KILL"
-        self.mainwindow.destroy()
-        #self.mainwindow.quit
-        # self.mainwindow.quit()
-      
-    def quit(self):
-         print(' ... here we are ... ')
-         #self.gamestatus = "WINDOW KILL"
-         self.mainwindow.destroy
-         # self.mainwindow.quit()
+        if running_ai == False: 
+            # - Bind the arrow keys to the update move function
+            self.mainwindow.bind("<Left>"  , lambda value : self.snake_update_move( -1,  0))
+            self.mainwindow.bind("<Right>" , lambda value : self.snake_update_move( +1,  0))
+            self.mainwindow.bind("<Up>"    , lambda value : self.snake_update_move(  0, -1))
+            self.mainwindow.bind("<Down>"  , lambda value : self.snake_update_move(  0, +1))
         
     # - Run the mainloop 
 
@@ -141,12 +130,6 @@ class SnakegameApp:
             self.candypos[1]*self.gamebox_size+self.game_padding+10,
             image=self.img_cake,
             tags=('clean', 'cake'))
-
-        # - Bind the arrow keys to the update move function
-        self.mainwindow.bind("<Left>"  , lambda value : self.snake_update_move( -1,  0))
-        self.mainwindow.bind("<Right>" , lambda value : self.snake_update_move( +1,  0))
-        self.mainwindow.bind("<Up>"    , lambda value : self.snake_update_move(  0, -1))
-        self.mainwindow.bind("<Down>"  , lambda value : self.snake_update_move(  0, +1))
         
     # --------------------------------------------------------------------------------------------
     # snake_update_move: depending on gamestatus, change the direction parameter
