@@ -2,6 +2,7 @@
 import random
 import snakeAI 
 from snakeAI import SnakegameApp
+import time
 
 # - Define some parameters for the ML machine
 
@@ -24,14 +25,34 @@ state  = [] * 11    #  0 - Danger straight
                     #   0,  1       Down
                     #   0, -1       Up
 
+old_time = time.time()
+new_time = time.time()
+#reward   = 0        # +10 : Cake found
+                    # -10 : Crashed / Game over
+                    #   0 : Everything else
+
 # The agents hook into the timed loop in Tk for gaining control
 def game_engine_hook():
+    
+    reward = 0
 
-    print("Here we are")
-
-    if app.gamestatus != 'RUNNING':
+    if app.gamestatus[0:5] == 'CRASH':
         print(f'quitting:Status={app.gamestatus}')
+        print(app.gamedata)
+        app.gamestatus = 'GAMEOVER'
+        app.gamedata['generation'] += 1
+        app.restart_command(dont_restart_engine=True)
+        reward = -10
+        return  # We need to remove this
+
+    if app.gamestatus == 'GAMEOVER':
+        print("If this is never written then remove this")
         return
+
+    if app.gamestatus == 'CAKE_FOUND':
+        print('Cake found :) ')
+        app.gamestatus = 'RUNNING'
+        reward = +10
 
     # Fake user input for guidance
     next_dir = random.randint(0,4)
@@ -47,7 +68,7 @@ def game_engine_hook():
 
     if action[1] == 1:    # take right turn
         app.direction = [-y,  x]
-    elif action[2] == 1:
+    elif action[2] == 1:  # take left turn
         app.direction = [ y, -x]
 
     app.move()

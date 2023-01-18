@@ -16,7 +16,7 @@ import pickle
 GAMEPLAN_SIZE     = 40     # Set the number of positions (boxes) that the snake can move (Horizontal and vertical)
 GAMEBOX_SIZE      = 20     # Set the size, in pixels, for the width of the box
 GAME_PADDING      = 10     # Set the padding on each side of the board
-GAME_SPEED        = 150    # Set the default speed for the snake. Slower number is faster
+GAME_SPEED        = 150    # Set the default speed for the snake. Lower number is faster
 SNAKE_LENGTH_ADD  = 3      # The increase in length each time the snake catch the cake     
 
 class SnakegameApp:
@@ -27,6 +27,7 @@ class SnakegameApp:
     gamedata = {
         'step'          : 0,
         'score'         : 0,
+        'iteration'     : 0,
         'speed'         : GAME_SPEED,
         'delay'         : 0,
         'length'        : 5,
@@ -141,12 +142,12 @@ class SnakegameApp:
     def check_collision(self, x, y): 
         # Check wall crash
         if ((x < 0 or x>self.gameplan_size-1) or (y < 0 or y>self.gameplan_size-1)):
-            self.gamestatus='RESTART_WALL'
+            self.gamestatus='CRASH_WALL'
             return True
 
         # Check if we crashed with snake body
         if self.gamematrix[x,y] == 2:
-            self.gamestatus='RESTART_SNAKE'
+            self.gamestatus='CRASH_SNAKE'
             return True
 
         return False
@@ -155,6 +156,13 @@ class SnakegameApp:
         if self.candypos == [x,y]:
             return True
         
+        return False
+
+    def check_iteration(self):   # Check if too many steps since last found cake
+        if len(self.snake_list) < 3: return False
+        if self.gamedata['iteration'] > 100*len(self.snake_list):
+            self.gamestatus = 'CRASH_LOST'
+            return True
         return False
     
     # --------------------------------------------------------------------------------------------
@@ -172,18 +180,23 @@ class SnakegameApp:
 
         # Check if we hit the wall or the body
         if self.check_collision(self.position[0], self.position[1]) is True:
-            if self.gamestatus == 'RESTART_WALL' :
+            if self.gamestatus == 'CRASH_WALL' :
                 self.info_variable.set("GAME OVER!\nYou hit the wall!\nPress 'Start Game' to go again.")
             else:
                 self.info_variable.set("GAME OVER!\nYou ran into yourself!\nPress 'Start Game' to go again.")
             self.info.config(bg='red')
             return
 
+        # CHeck if we have had to many steps since last we found the cakse
+        if self.check_iteration() is True:
+            return
+
         # Check if we caught the candy 
         if self.check_candy_found(self.position[0], self.position[1]) == True:
-        #if self.position ==  self.candypos:
             self.gamedata['score'] += 1
             self.score_variable.set(f"{self.gamedata['score']:03d}")
+            self.gamestatus = 'CAKE_FOUND'
+            self.gamedata['iteration'] = 0
             # - place the cake again, be sure that is not set in an occupied box
             while True:
                 self.candypos[0] = random.randint(5, self.gameplan_size-5)
@@ -233,21 +246,27 @@ class SnakegameApp:
 
         # Update the step counter (Need to present it in the dashboard later ...)
         self.gamedata['step'] += 1
+        self.gamedata['iteration'] += 1
+
+        self.status_variable.set(
+            f"Status:\n\nstep: {self.gamedata['step']}\n" +\
+            f"iteration: {self.gamedata['iteration']}\n" +\
+            f"Generation: {self.gamedata['generation']}\n")
+
     
     # --------------------------------------------------------------------------------------------
 
     def game_engine(self):
-        if self.gamestatus != 'RUNNING':
+        if self.gamestatus == 'GAMEOVER':
             return
         
         self.game_engine_hook()
 
         # self.move()
 
-        # start_time = threading.Timer(150.0/1000, self.game_engine)
-        # start_time.start()
-
+        
         self.mainwindow.after(int(self.gamedata['delay']),self.game_engine)
+        # self.mainwindow.after(300,self.game_engine)
     # ---------------------------------------------------------------------------------------------
 
     def spacebar_command(self, event):
@@ -256,7 +275,7 @@ class SnakegameApp:
     def setspeed_command(self, scale_value):
         pass
 
-    def restart_command(self):
+    def restart_command(self, dont_restart_engine=False):
         
         # -- Clean up previous session
         # ----- Delete all objects
@@ -280,10 +299,9 @@ class SnakegameApp:
         # -- Start up   game session 
         self.gamestatus = 'RUNNING'
         self.start_new()
-        #self.engine()
-        self.game_engine()
-
-
+        if dont_restart_engine == False:
+            self.game_engine()
+        
 if __name__ == "__main__":
     app = SnakegameApp(GAMEPLAN_SIZE, GAMEBOX_SIZE, GAME_PADDING)
     app.run()
