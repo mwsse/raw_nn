@@ -142,27 +142,22 @@ class SnakegameApp:
     def check_collision(self, x, y): 
         # Check wall crash
         if ((x < 0 or x>self.gameplan_size-1) or (y < 0 or y>self.gameplan_size-1)):
-            self.gamestatus='CRASH_WALL'
-            return True
+            return 'CRASH_WALL'
 
         # Check if we crashed with snake body
         if self.gamematrix[x,y] == 2:
-            self.gamestatus='CRASH_SNAKE'
-            return True
+            return 'CRASH_SNAKE'
 
-        return False
+        # Check if we have done to many iterations since last cake was found
+        if (len(self.snake_list) > 2) and (self.gamedata['iteration'] > 100*len(self.snake_list)):
+            return 'CRASH_ITERATION'
+            
+        return 'NO_COLLISION'
 
     def check_candy_found(self, x, y):
         if self.candypos == [x,y]:
             return True
         
-        return False
-
-    def check_iteration(self):   # Check if too many steps since last found cake
-        if len(self.snake_list) < 3: return False
-        if self.gamedata['iteration'] > 100*len(self.snake_list):
-            self.gamestatus = 'CRASH_LOST'
-            return True
         return False
     
     # --------------------------------------------------------------------------------------------
@@ -179,16 +174,18 @@ class SnakegameApp:
         self.position[1] += self.direction[1]
 
         # Check if we hit the wall or the body
-        if self.check_collision(self.position[0], self.position[1]) is True:
-            if self.gamestatus == 'CRASH_WALL' :
-                self.info_variable.set("GAME OVER!\nYou hit the wall!\nPress 'Start Game' to go again.")
-            else:
-                self.info_variable.set("GAME OVER!\nYou ran into yourself!\nPress 'Start Game' to go again.")
-            self.info.config(bg='red')
-            return
+        is_collision = self.check_collision(self.position[0], self.position[1])
 
-        # CHeck if we have had to many steps since last we found the cakse
-        if self.check_iteration() is True:
+        if is_collision != 'NO_COLLISION':
+            self.gamestatus = is_collision            
+            
+            if is_collision == 'CRASH_WALL' :
+                self.info_variable.set("GAME OVER!\nYou hit the wall!\nPress 'Start Game' to go again.")
+            elif is_collision == 'CRASH_SNAKE':
+                self.info_variable.set("GAME OVER!\nYou ran into yourself!\nPress 'Start Game' to go again.")
+            else:
+                self.info_variable.set("GAME OVER!\nYou are stuck!\nPress 'Start Game' to go again.")
+            self.info.config(bg='red')
             return
 
         # Check if we caught the candy 
