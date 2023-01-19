@@ -186,6 +186,7 @@ class SnakegameApp:
             else:
                 self.info_variable.set("GAME OVER!\nYou are stuck!\nPress 'Start Game' to go again.")
             self.info.config(bg='red')
+            
             return
 
         # Check if we caught the candy 

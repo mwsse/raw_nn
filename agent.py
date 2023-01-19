@@ -1,83 +1,59 @@
 # Reinforced learning - Agent for SnakeAI.py
+
 import random
 import snakeAI 
 from snakeAI import SnakegameApp
 import time
+import numpy as np
+from collections import deque
 
-# - Define some parameters for the ML machine
+MAX_MEMORY = 100_000
+BATCH_SIZE = 1000
+LR = 0.001
 
-action = [] *  3    # [Straight, Right, Left]
+class Agent: 
 
-state  = [] * 11    #  0 - Danger straight
-                    #  1 - Danger right
-                    #  2 - Danger left
-                    #  3 - Direction left
-                    #  4 - Direction right
-                    #  5 - Direction up
-                    #  6 - Direction down
-                    #  7 - food left
-                    #  8 - food right
-                    #  9 - food up
-                    # 10 - food down
+    def __init__(self):
+        self.n_games = 0
+        self.epsilon = 0   # Control randomness
+        self.gamma   = 0   # Discount rate
+        self.memory  = deque(maxlen=MAX_MEMORY)  # popleft() if full
 
-# direction[x,y]    #   1,  0       Right
-                    #  -1,  0       Left
-                    #   0,  1       Down
-                    #   0, -1       Up
+        self.game = SnakegameApp(game_engine_hook=self.game_hook, running_ai=True)
+        self.game.run()
 
-old_time = time.time()
-new_time = time.time()
-#reward   = 0        # +10 : Cake found
-                    # -10 : Crashed / Game over
-                    #   0 : Everything else
-
-# The agents hook into the timed loop in Tk for gaining control
-def game_engine_hook():
+        # TODO: model, trainer
+        pass
     
-    reward = 0
-
-    if app.gamestatus[0:5] == 'CRASH':
-        print(f'quitting:Status={app.gamestatus}')
-        print(app.gamedata)
-        app.gamestatus = 'GAMEOVER'
-        app.gamedata['generation'] += 1
-        app.restart_command(dont_restart_engine=True)
-        reward = -10
-        return  # We need to remove this
-
-    if app.gamestatus == 'GAMEOVER':
-        print("If this is never written then remove this")
-        return
-
-    if app.gamestatus == 'CAKE_FOUND':
-        print('Cake found :) ')
-        app.gamestatus = 'RUNNING'
-        reward = +10
-
-    # Fake user input for guidance
-    next_dir = random.randint(0,4)
-    if next_dir<3:
-        action = [1,0,0]   # Straight
-    elif next_dir == 3:
-        action = [0,1,0]   # Right
-    else:
-        action = [0,0,1]   # Left
-
-    # Get new direction from action
-    x,y = app.direction
-
-    if action[1] == 1:    # take right turn
-        app.direction = [-y,  x]
-    elif action[2] == 1:  # take left turn
-        app.direction = [ y, -x]
-
-    app.move()
+    def game_engine(self):
+        pass
 
 
 
-# -- Start the game and enter the TK mainloop. 
-app = SnakegameApp( game_engine_hook=game_engine_hook, 
-                    running_ai=False)
-app.run()
+    def get_state(self): 
+        pass
 
-print("Game closed")
+    def remember(self, state, action, reward, next_state, done):
+        pass
+
+    def train_long_memory(self):
+        pass
+
+    def train_short_memory(self):
+        pass
+
+    def get_action(self, state):
+        pass
+
+def train():
+    plot_scores     = []
+    plot_mean_sores = []
+    total_score     = 0
+    record          = 0
+    agent = Agent()
+    game = SnakegameApp(game_engine_hook=agent.game_engine, running_ai=True)
+    game.run()
+    pass
+
+if __name__ == '__main__':
+    train()
